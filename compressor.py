@@ -1,4 +1,5 @@
-#Implements the logic of the compression using the RLE algortihm.
+#Compressor using the rle algorithm
 
-def RLE_Compresion(input):
+def RLE_compression(input):
+
     return 0
