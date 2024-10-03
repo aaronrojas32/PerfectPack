@@ -36,7 +36,6 @@ def compress_file(input_file, output_file, chunk_size=8*1024*1024):  # Leer en t
     end_time = time.time()
     print(f"\n\033[1mCompresión completada en {end_time - start_time:.2f} segundos\033[0m")
 
-# Usar la función para comprimir un archivo
-input_file = 'test.jpg'  # Archivo de entrada (puede ser binario)
-output_file = 'test.myPack'  # Archivo de salida (en modo binario)
-compress_file(input_file, output_file)
+input_file = 'test.txt' #Input file for the compression
+output_file = 'test.myPack' #Output file with personalized format
+compress_file(input_file, output_file) #Compresion
