@@ -1,4 +1,6 @@
 from compressor import RLE_compression
+from tqdm import tqdm
+import time
 
 # Función para comprimir un archivo, aceptando todo tipo de archivos
 def compress_file(input_file, output_file, chunk_size=8*1024*1024):  # Leer en trozos de 8MB por defecto
