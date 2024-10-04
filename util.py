@@ -1,6 +1,7 @@
 from compressor import RLE_compression
 from tqdm import tqdm
 import time
+import os
 
 # Función para comprimir un archivo, aceptando todo tipo de archivos
 def compress_file(input_file, output_file, chunk_size=8*1024*1024):  # Leer en trozos de 8MB por defecto
@@ -36,6 +37,6 @@ def compress_file(input_file, output_file, chunk_size=8*1024*1024):  # Leer en t
     end_time = time.time()
     print(f"\n\033[1mCompresión completada en {end_time - start_time:.2f} segundos\033[0m")
 
-input_file = 'test.txt' #Input file for the compression
-output_file = 'test.myPack' #Output file with personalized format
-compress_file(input_file, output_file) #Compresion
+input_file = input("Introduca el path del arhcivo a comprimir: ")
+output_file = 'test.myPack'
+compress_file(input_file,output_file)

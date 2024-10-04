@@ -1,5 +1,3 @@
-import time
-from tqdm import tqdm
 
 def RLE_compression(input_bytes):
     compressed = bytearray()
