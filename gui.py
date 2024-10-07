@@ -1,152 +1,124 @@
 import os
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-import compressor  # Assuming RLE functions are inside compressor.py
+import customtkinter as ctk
+from tkinter import filedialog, messagebox
+from compressor import compress_file, decompress_file
+
+# Configuración inicial para CustomTkinter
+ctk.set_appearance_mode("dark")  # Tema oscuro
+ctk.set_default_color_theme("blue")  # Color principal azul
 
 class CompressionApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("File Compression Tool")
-        self.root.geometry("400x400")
+        self.root.title("PerfectPack")
+        
+        # Ajustamos el tamaño de la ventana para que todo se vea bien
+        self.root.geometry("500x500")  # Aumentamos la altura a 500px para que quepan todos los elementos.
         self.root.resizable(False, False)
 
-        # Style for ttk widgets
-        style = ttk.Style()
-        style.configure("TLabel", font=("Arial", 12))
-        style.configure("TButton", font=("Arial", 10))
-        style.configure("TCheckbutton", font=("Arial", 10))
-        style.configure("TCombobox", font=("Arial", 10))
+        # Header
+        self.title_label = ctk.CTkLabel(root, text="File Compression Tool", font=ctk.CTkFont(size=20, weight="bold"))
+        self.title_label.pack(pady=20)
 
-        # Compression Section
-        self.label_compress = ttk.Label(root, text="Compress a File:")
-        self.label_compress.pack(pady=10)
+        # File selection
+        self.file_frame = ctk.CTkFrame(root)
+        self.file_frame.pack(pady=10, padx=10, fill="x")
 
-        self.button_compress = ttk.Button(root, text="Select File to Compress", command=self.select_file_to_compress)
-        self.button_compress.pack(pady=5)
+        self.file_path_var = ctk.StringVar()
+        self.file_path_entry = ctk.CTkEntry(self.file_frame, textvariable=self.file_path_var, width=300, placeholder_text="Select a file...")
+        self.file_path_entry.grid(row=0, column=0, padx=10, pady=10)
 
-        # Compression Algorithm Selector
-        self.label_algorithm = ttk.Label(root, text="Select Compression Algorithm:")
-        self.label_algorithm.pack(pady=5)
+        self.browse_button = ctk.CTkButton(self.file_frame, text="Browse", command=self.browse_file, width=100)
+        self.browse_button.grid(row=0, column=1, padx=10, pady=10)
 
-        self.algorithms = ["RLE", "Huffman"]
-        self.combo_algorithm = ttk.Combobox(root, values=self.algorithms, state="readonly")
-        self.combo_algorithm.current(0)  # Default to RLE
-        self.combo_algorithm.pack(pady=5)
+        # Algorithm selection
+        self.algorithm_label = ctk.CTkLabel(root, text="Select Compression Algorithm:", font=ctk.CTkFont(size=14))
+        self.algorithm_label.pack(pady=10)
 
-        # Custom filename checkbox and entry field
-        self.custom_name_var = tk.IntVar()
-        self.check_custom_name = ttk.Checkbutton(root, text="Custom Filename", variable=self.custom_name_var, command=self.toggle_custom_name)
-        self.check_custom_name.pack(pady=5)
+        self.algorithm_var = ctk.StringVar(value="RLE")
+        self.rle_radio = ctk.CTkRadioButton(root, text="RLE (Run-Length Encoding)", variable=self.algorithm_var, value="RLE")
+        self.huffman_radio = ctk.CTkRadioButton(root, text="Huffman Encoding", variable=self.algorithm_var, value="Huffman")
+        self.rle_radio.pack(pady=5)
+        self.huffman_radio.pack(pady=5)
 
-        self.entry_custom_name = ttk.Entry(root, state='disabled', width=40)
-        self.entry_custom_name.pack(pady=5)
+        # Custom file name input
+        self.custom_name_label = ctk.CTkLabel(root, text="Custom Output Name (Optional):", font=ctk.CTkFont(size=14))
+        self.custom_name_label.pack(pady=5)
 
-        # Decompression Section
-        self.label_decompress = ttk.Label(root, text="Decompress a File:")
-        self.label_decompress.pack(pady=10)
-
-        self.button_decompress = ttk.Button(root, text="Select File to Decompress", command=self.select_file_to_decompress)
-        self.button_decompress.pack(pady=5)
+        self.custom_name_var = ctk.StringVar()
+        self.custom_name_entry = ctk.CTkEntry(root, textvariable=self.custom_name_var, width=350, placeholder_text="Leave blank for original name...")
+        self.custom_name_entry.pack(pady=5)
 
         # Progress bar
-        self.progress = ttk.Progressbar(root, orient='horizontal', length=300, mode='determinate')
-        self.progress.pack(pady=20)
+        self.progress = ctk.CTkProgressBar(root, width=400)
+        self.progress.pack(pady=10)
 
-        # Close button
-        self.button_close = ttk.Button(root, text="Close", command=root.quit)
-        self.button_close.pack(pady=20)
+        # Compress/Decompress Buttons (Ajustamos el espaciado para que todo quepa)
+        self.button_frame = ctk.CTkFrame(root)
+        self.button_frame.pack(pady=40)  # Aumentamos el espacio aquí para no cortar
 
-    def toggle_custom_name(self):
-        """
-        Enable or disable the custom name entry based on the checkbox.
-        """
-        if self.custom_name_var.get():
-            self.entry_custom_name.config(state='normal')
-        else:
-            self.entry_custom_name.delete(0, 'end')
-            self.entry_custom_name.config(state='disabled')
+        self.compress_button = ctk.CTkButton(self.button_frame, text="Compress", command=self.compress_file, width=150)
+        self.compress_button.grid(row=0, column=0, padx=20)  # Ajustamos el espacio horizontal
 
-    def select_file_to_compress(self):
-        """
-        Opens a file dialog to choose a file to compress.
-        """
-        file_path = filedialog.askopenfilename(title="Select a File to Compress")
+        self.decompress_button = ctk.CTkButton(self.button_frame, text="Decompress", command=self.decompress_file, width=150)
+        self.decompress_button.grid(row=0, column=1, padx=20)
+
+    def browse_file(self):
+        file_path = filedialog.askopenfilename()
         if file_path:
-            self.compress_file(file_path)
+            self.file_path_var.set(file_path)
 
-    def compress_file(self, file_path):
-        """
-        Compress the selected file and display progress.
-        """
+    def compress_file(self):
+        file_path = self.file_path_var.get()
+        if not file_path:
+            messagebox.showerror("Error", "Please select a file to compress.")
+            return
+
+        custom_name = self.custom_name_var.get()
+        algorithm = self.algorithm_var.get()
+
+        output_file = custom_name if custom_name else None
+
         try:
-            algorithm = self.combo_algorithm.get()  # Get selected algorithm
-            file_name, file_extension = os.path.splitext(file_path)
-            if self.custom_name_var.get():  # If custom name is enabled
-                custom_name = self.entry_custom_name.get()
-                output_file = os.path.join(os.path.dirname(file_path), custom_name + ".myPack")
+            # Simulate compression progress
+            self.progress.set(0)
+            self.root.update_idletasks()
+
+            if algorithm == "RLE":
+                compress_file(file_path, output_file, algorithm="RLE", progress_callback=self.update_progress)
             else:
-                output_file = file_name + ".myPack"
+                compress_file(file_path, output_file, algorithm="Huffman", progress_callback=self.update_progress)
 
-            self.progress['value'] = 0  # Reset progress bar
-            self.update_progress(10)  # Simulate progress (you should update based on actual compression)
+            messagebox.showinfo("Success", "File successfully compressed!")
 
-            if algorithm == "RLE":
-                compressor.compress_file(file_path, output_file)
-            elif algorithm == "Huffman":
-                with open(file_path, 'r') as f:
-                    input_data = f.read()
-                compressed_data, root = compressor.huffman_compress(input_data)
-                with open(output_file, 'wb') as f:
-                    f.write(compressed_data)
-
-            self.update_progress(100)  # Full progress once done
-            messagebox.showinfo("Success", f"File compressed successfully as {output_file}")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to compress file: {e}")
+            messagebox.showerror("Error", f"An error occurred during compression: {e}")
 
-    def select_file_to_decompress(self):
-        """
-        Opens a file dialog to choose a compressed file to decompress.
-        """
-        compressed_file_path = filedialog.askopenfilename(title="Select a Compressed File", 
-                                                          filetypes=[("Compressed Files", "*.myPack")])
-        if compressed_file_path:
-            self.decompress_file(compressed_file_path)
+    def decompress_file(self):
+        file_path = self.file_path_var.get()
+        if not file_path:
+            messagebox.showerror("Error", "Please select a file to decompress.")
+            return
 
-    def decompress_file(self, compressed_file_path):
-        """
-        Decompress the selected file and display progress.
-        """
         try:
-            algorithm = self.combo_algorithm.get()  # Get selected algorithm
-            output_file = os.path.splitext(compressed_file_path)[0]  # Strip the .myPack extension
+            self.progress.set(0)
+            self.root.update_idletasks()
 
-            self.progress['value'] = 0  # Reset progress bar
-            self.update_progress(10)  # Simulate progress (you should update based on actual decompression)
+            # Decompress the selected file
+            decompress_file(file_path, progress_callback=self.update_progress)
 
-            if algorithm == "RLE":
-                compressor.decompress_file(compressed_file_path, output_file)
-            elif algorithm == "Huffman":
-                with open(compressed_file_path, 'rb') as f:
-                    compressed_data = f.read()
-                with open(output_file, 'w') as f:
-                    f.write(compressor.huffman_decompress(compressed_data))
+            messagebox.showinfo("Success", "File successfully decompressed!")
 
-            self.update_progress(100)  # Full progress once done
-            messagebox.showinfo("Success", f"File decompressed successfully as {output_file}")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to decompress file: {e}")
+            messagebox.showerror("Error", f"An error occurred during decompression: {e}")
 
     def update_progress(self, value):
-        """
-        Update the progress bar.
-        """
-        self.progress['value'] = value
-        self.root.update_idletasks()  # This is important to make sure the GUI updates the progress bar
+        self.progress.set(value / 100)
+        self.root.update_idletasks()
 
 
-# Run the app
+# Run the application
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ctk.CTk()
     app = CompressionApp(root)
     root.mainloop()
