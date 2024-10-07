@@ -77,24 +77,31 @@ def compress_file(input_file, output_file=None, chunk_size=8*1024*1024):
     print(f"\n\033[1mCompression completed in {end_time - start_time:.2f} seconds\033[0m")
     print(f"File saved as: {output_file}")
 
-def decompress_file(compressed_file):
+def decompress_file(compressed_file, output_file=None, is_test=False):
+    """
+    Decompresses a file that was compressed using the custom RLE format, restoring the original filename.
+    
+    Args:
+        compressed_file (str): Path to the compressed file.
+        output_file (str): Path to the output decompressed file. If None, uses the original filename from the compressed file.
+        is_test (bool): If True, automatically generates a decompressed file name for testing.
+    """
     start_time = time.time()
 
     with open(compressed_file, 'rb') as file_in:
-        # Leer el nombre del archivo original
-        original_file_name = file_in.readline().decode().strip()
-        file_size = os.path.getsize(compressed_file) - len(original_file_name) - 1
+        # Read the header to get the original filename
+        original_file_name = file_in.readline().decode().strip()  # The full original name with extension
         
-        # Preguntar al usuario si quiere cambiar el nombre del archivo descomprimido
-        new_file_name = input(f"Enter new name for the decompressed file (leave empty to use '{original_file_name}'): ").strip()
+        if is_test:
+            # If running a test, create an automatic decompressed file name
+            original_name, original_ext = os.path.splitext(original_file_name)
+            output_file = f"Test/{original_name}_decompressed{original_ext}"
 
-        # Si el usuario no introduce un nombre, se usa el nombre original
-        if not new_file_name:
-            decompressed_file = os.path.join(os.path.dirname(compressed_file), original_file_name)
-        else:
-            original_name_no_ext, original_ext = os.path.splitext(original_file_name)
-            new_file_name = new_file_name + original_ext
-            decompressed_file = os.path.join(os.path.dirname(compressed_file), new_file_name)
+        # If no output file is specified, use the original filename
+        if output_file is None:
+            output_file = original_file_name
+
+        file_size = os.path.getsize(compressed_file) - len(original_file_name) - 1  # Estimate size excluding the header
 
         print(f"\n\033[1mStarting decompression...\033[0m\n")
         
@@ -102,16 +109,22 @@ def decompress_file(compressed_file):
                   bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
                   ascii=' █', desc="Decompressing") as pbar:
             
-            with open(decompressed_file, 'wb') as file_out:
+            with open(output_file, 'wb') as file_out:
                 while True:
                     buffer = file_in.read(1024)
                     if not buffer:
                         break
 
+                    # Decompress the data using RLE
                     decompressed_chunk = RLE_decompression(buffer)
+
+                    # Write decompressed chunk to the output file
                     file_out.write(decompressed_chunk)
+
+                    # Update progress bar
                     pbar.update(len(buffer))
 
     end_time = time.time()
     print(f"\n\033[1mDecompression completed in {end_time - start_time:.2f} seconds\033[0m")
-    print(f"File decompressed as: {decompressed_file}")
+    print(f"File decompressed as: {output_file}")
+    return output_file
