@@ -1,6 +1,83 @@
 import os
 import time
 from tqdm import tqdm
+import heapq
+from collections import Counter
+
+# Huffman Tree Node
+class HuffmanNode:
+    def __init__(self, char, freq):
+        self.char = char
+        self.freq = freq
+        self.left = None
+        self.right = None
+
+    def __lt__(self, other):
+        return self.freq < other.freq
+
+def build_huffman_tree(text):
+    freq = Counter(text)
+    priority_queue = [HuffmanNode(char, freq) for char, freq in freq.items()]
+    heapq.heapify(priority_queue)
+    
+    while len(priority_queue) > 1:
+        left = heapq.heappop(priority_queue)
+        right = heapq.heappop(priority_queue)
+        merged = HuffmanNode(None, left.freq + right.freq)
+        merged.left = left
+        merged.right = right
+        heapq.heappush(priority_queue, merged)
+
+    root = heapq.heappop(priority_queue)
+    huffman_code = {}
+    build_codes(root, "", huffman_code)
+    return root, huffman_code
+
+def build_codes(node, current_code, huffman_code):
+    if node is None:
+        return
+    if node.char is not None:
+        huffman_code[node.char] = current_code
+    build_codes(node.left, current_code + "0", huffman_code)
+    build_codes(node.right, current_code + "1", huffman_code)
+
+def huffman_compress(input_data):
+    root, huffman_code = build_huffman_tree(input_data)
+    encoded_data = ''.join(huffman_code[char] for char in input_data)
+
+    # Pad the encoded data to make it a multiple of 8 bits
+    extra_padding = 8 - len(encoded_data) % 8
+    encoded_data += "0" * extra_padding
+
+    # Store the padding info in the first byte
+    padded_info = "{0:08b}".format(extra_padding)
+    encoded_data = padded_info + encoded_data
+
+    # Convert the encoded binary string into bytes
+    compressed_data = bytearray()
+    for i in range(0, len(encoded_data), 8):
+        byte = encoded_data[i:i+8]
+        compressed_data.append(int(byte, 2))
+
+    return compressed_data, root
+
+def huffman_decompress(compressed_data, root):
+    encoded_data = ''.join(format(byte, '08b') for byte in compressed_data)
+
+    # Get the padding info from the first byte
+    extra_padding = int(encoded_data[:8], 2)
+    encoded_data = encoded_data[8:]  # Remove padding info byte
+    encoded_data = encoded_data[:-extra_padding]  # Remove padding from the end
+
+    decoded_data = []
+    current_node = root
+    for bit in encoded_data:
+        current_node = current_node.left if bit == '0' else current_node.right
+        if current_node.char is not None:
+            decoded_data.append(current_node.char)
+            current_node = root
+
+    return ''.join(decoded_data)
 
 def RLE_compression(input_bytes):
     compressed = bytearray()
@@ -44,7 +121,7 @@ def RLE_decompression(compressed_bytes):
 
     return decompressed
 
-def compress_file(input_file, output_file=None, chunk_size=8*1024*1024):
+def compress_file(input_file, algorithm="RLE", output_file=None, chunk_size=8*1024*1024):
     start_time = time.time()
     file_size = os.path.getsize(input_file)
     
@@ -55,37 +132,35 @@ def compress_file(input_file, output_file=None, chunk_size=8*1024*1024):
     if output_file is None:
         output_file = os.path.join(os.path.dirname(input_file), file_name_no_ext + ".myPack")
     
-    print(f"\n\033[1mStarting compression...\033[0m\n")
+    print(f"\n\033[1mStarting compression using {algorithm}...\033[0m\n")
 
     with tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024,
               bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
               ascii=' █', desc="Compressing") as pbar:
         
         with open(input_file, 'rb') as file_in, open(output_file, 'wb') as file_out:
-            file_out.write(f"{file_name}\n".encode())
+            file_out.write(f"{file_name}\n".encode())  # Store the original file name in the header
             
-            while True:
-                buffer = file_in.read(chunk_size)
-                if not buffer:
-                    break
+            if algorithm == "RLE":
+                while True:
+                    buffer = file_in.read(chunk_size)
+                    if not buffer:
+                        break
 
-                compressed_chunk = RLE_compression(buffer)
-                file_out.write(compressed_chunk)
-                pbar.update(len(buffer))
+                    compressed_chunk = RLE_compression(buffer)
+                    file_out.write(compressed_chunk)
+                    pbar.update(len(buffer))
+            elif algorithm == "Huffman":
+                input_data = file_in.read()
+                compressed_data, _ = huffman_compress(input_data)
+                file_out.write(compressed_data)
+                pbar.update(len(input_data))
 
     end_time = time.time()
     print(f"\n\033[1mCompression completed in {end_time - start_time:.2f} seconds\033[0m")
     print(f"File saved as: {output_file}")
 
-def decompress_file(compressed_file, output_file=None, is_test=False):
-    """
-    Decompresses a file that was compressed using the custom RLE format, restoring the original filename.
-    
-    Args:
-        compressed_file (str): Path to the compressed file.
-        output_file (str): Path to the output decompressed file. If None, uses the original filename from the compressed file.
-        is_test (bool): If True, automatically generates a decompressed file name for testing.
-    """
+def decompress_file(compressed_file, algorithm="RLE", output_file=None, is_test=False):
     start_time = time.time()
 
     with open(compressed_file, 'rb') as file_in:
@@ -93,36 +168,33 @@ def decompress_file(compressed_file, output_file=None, is_test=False):
         original_file_name = file_in.readline().decode().strip()  # The full original name with extension
         
         if is_test:
-            # If running a test, create an automatic decompressed file name
             original_name, original_ext = os.path.splitext(original_file_name)
             output_file = f"Test/{original_name}_decompressed{original_ext}"
 
-        # If no output file is specified, use the original filename
         if output_file is None:
             output_file = original_file_name
 
-        file_size = os.path.getsize(compressed_file) - len(original_file_name) - 1  # Estimate size excluding the header
+        file_size = os.path.getsize(compressed_file) - len(original_file_name) - 1
 
-        print(f"\n\033[1mStarting decompression...\033[0m\n")
+        print(f"\n\033[1mStarting decompression using {algorithm}...\033[0m\n")
         
         with tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024,
                   bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
                   ascii=' █', desc="Decompressing") as pbar:
             
             with open(output_file, 'wb') as file_out:
-                while True:
-                    buffer = file_in.read(1024)
-                    if not buffer:
-                        break
-
-                    # Decompress the data using RLE
-                    decompressed_chunk = RLE_decompression(buffer)
-
-                    # Write decompressed chunk to the output file
-                    file_out.write(decompressed_chunk)
-
-                    # Update progress bar
-                    pbar.update(len(buffer))
+                if algorithm == "RLE":
+                    while True:
+                        buffer = file_in.read(1024)
+                        if not buffer:
+                            break
+                        decompressed_chunk = RLE_decompression(buffer)
+                        file_out.write(decompressed_chunk)
+                        pbar.update(len(buffer))
+                elif algorithm == "Huffman":
+                    compressed_data = file_in.read()
+                    decompressed_data = huffman_decompress(compressed_data, root=None)
+                    file_out.write(decompressed_data.encode())  # Ensure binary compatibility
 
     end_time = time.time()
     print(f"\n\033[1mDecompression completed in {end_time - start_time:.2f} seconds\033[0m")

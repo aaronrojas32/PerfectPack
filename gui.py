@@ -1,13 +1,13 @@
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-import compressor  # Assuming compressor.py contains your compression logic
+import compressor  # Assuming RLE functions are inside compressor.py
 
 class CompressionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("File Compression Tool")
-        self.root.geometry("400x300")
+        self.root.geometry("400x400")
         self.root.resizable(False, False)
 
         # Style for ttk widgets
@@ -15,6 +15,7 @@ class CompressionApp:
         style.configure("TLabel", font=("Arial", 12))
         style.configure("TButton", font=("Arial", 10))
         style.configure("TCheckbutton", font=("Arial", 10))
+        style.configure("TCombobox", font=("Arial", 10))
 
         # Compression Section
         self.label_compress = ttk.Label(root, text="Compress a File:")
@@ -22,6 +23,15 @@ class CompressionApp:
 
         self.button_compress = ttk.Button(root, text="Select File to Compress", command=self.select_file_to_compress)
         self.button_compress.pack(pady=5)
+
+        # Compression Algorithm Selector
+        self.label_algorithm = ttk.Label(root, text="Select Compression Algorithm:")
+        self.label_algorithm.pack(pady=5)
+
+        self.algorithms = ["RLE", "Huffman"]
+        self.combo_algorithm = ttk.Combobox(root, values=self.algorithms, state="readonly")
+        self.combo_algorithm.current(0)  # Default to RLE
+        self.combo_algorithm.pack(pady=5)
 
         # Custom filename checkbox and entry field
         self.custom_name_var = tk.IntVar()
@@ -69,7 +79,7 @@ class CompressionApp:
         Compress the selected file and display progress.
         """
         try:
-            # Automatically save in the same directory with .myPack extension
+            algorithm = self.combo_algorithm.get()  # Get selected algorithm
             file_name, file_extension = os.path.splitext(file_path)
             if self.custom_name_var.get():  # If custom name is enabled
                 custom_name = self.entry_custom_name.get()
@@ -80,7 +90,14 @@ class CompressionApp:
             self.progress['value'] = 0  # Reset progress bar
             self.update_progress(10)  # Simulate progress (you should update based on actual compression)
 
-            compressor.compress_file(file_path, output_file)
+            if algorithm == "RLE":
+                compressor.compress_file(file_path, output_file)
+            elif algorithm == "Huffman":
+                with open(file_path, 'r') as f:
+                    input_data = f.read()
+                compressed_data, root = compressor.huffman_compress(input_data)
+                with open(output_file, 'wb') as f:
+                    f.write(compressed_data)
 
             self.update_progress(100)  # Full progress once done
             messagebox.showinfo("Success", f"File compressed successfully as {output_file}")
@@ -101,13 +118,19 @@ class CompressionApp:
         Decompress the selected file and display progress.
         """
         try:
-            # Automatically save in the same directory with original name
+            algorithm = self.combo_algorithm.get()  # Get selected algorithm
             output_file = os.path.splitext(compressed_file_path)[0]  # Strip the .myPack extension
 
             self.progress['value'] = 0  # Reset progress bar
             self.update_progress(10)  # Simulate progress (you should update based on actual decompression)
 
-            compressor.decompress_file(compressed_file_path, output_file=output_file)
+            if algorithm == "RLE":
+                compressor.decompress_file(compressed_file_path, output_file)
+            elif algorithm == "Huffman":
+                with open(compressed_file_path, 'rb') as f:
+                    compressed_data = f.read()
+                with open(output_file, 'w') as f:
+                    f.write(compressor.huffman_decompress(compressed_data))
 
             self.update_progress(100)  # Full progress once done
             messagebox.showinfo("Success", f"File decompressed successfully as {output_file}")
