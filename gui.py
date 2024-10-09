@@ -84,12 +84,14 @@ class CompressionApp:
             self.progress.set(0)
             self.root.update_idletasks()
 
-            if algorithm == "RLE":
-                compress_file(file_path, output_file, algorithm="RLE", progress_callback=self.update_progress)
-            else:
-                compress_file(file_path, output_file, algorithm="Huffman", progress_callback=self.update_progress)
+            # Llama a compress_file de manera correcta
+            compress_file(file_path, algorithm=algorithm, output_file=output_file)
 
             messagebox.showinfo("Success", "File successfully compressed!")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred during compression: {e}")
+
 
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred during compression: {e}")

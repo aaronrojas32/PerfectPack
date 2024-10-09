@@ -1,93 +1,90 @@
-import compressor
-import filecmp
 import os
+import filecmp
+from colorama import Fore, Style
+from compressor import compress_file, decompress_file
 
-# Define the input files for the tests
+# Archivos de entrada
 input_file_300 = "Test/test_300ch.txt"
-compressed_file_300 = "Test/test_300ch.myPack"
-
 input_file_1000 = "Test/test_1000ch.txt"
-compressed_file_1000 = "Test/test_1000ch.myPack"
-
 input_file_10000 = "Test/test_10000ch.txt"
+
+# Archivos comprimidos y descomprimidos
+compressed_file_300 = "Test/test_300ch.myPack"
+compressed_file_1000 = "Test/test_1000ch.myPack"
 compressed_file_10000 = "Test/test_10000ch.myPack"
 
-
-def test_compression_decompression(input_file, compressed_file):
+def test_compression_decompression(input_file, compressed_file, algorithm="RLE"):
     """
-    Tests the compression and decompression process, comparing the original and decompressed files.
-    Automatically generates decompressed file names during testing and cleans up the temporary files after.
+    Test the compression and decompression process.
     """
-    print(f"\n\033[1mStarting the compression and decompression test for {input_file}...\033[0m")
-
     try:
+        print(Fore.CYAN + f"=== Test for {input_file} using {algorithm} ===" + Style.RESET_ALL)
+        
         # Compress the file
-        print(f"\nCompressing the file: {input_file}")
-        compressor.compress_file(input_file, compressed_file)
+        compress_file(input_file, algorithm=algorithm, output_file=compressed_file)
 
-        # Check if the compressed file exists
-        if not os.path.exists(compressed_file):
-            print(f"\033[91mError: The compressed file {compressed_file} was not created correctly.\033[0m")
-            return False
+        # Decompress the file
+        decompressed_file = decompress_file(compressed_file, algorithm=algorithm, is_test=True)
 
-        # Decompress the file and automatically generate decompressed file name
-        print(f"\nDecompressing the compressed file: {compressed_file}")
-        decompressed_file = compressor.decompress_file(compressed_file, is_test=True)
-
-        # Check if the decompressed file exists
+        # Check if the decompressed file was created
         if not os.path.exists(decompressed_file):
-            print(f"\033[91mError: The decompressed file {decompressed_file} was not created correctly.\033[0m")
+            print(Fore.RED + f"Error: The decompressed file {decompressed_file} was not created." + Style.RESET_ALL)
             return False
 
         # Compare the original file with the decompressed one
         files_are_equal = filecmp.cmp(input_file, decompressed_file, shallow=False)
         if files_are_equal:
-            print(f"\033[92mSuccess: The decompressed file {decompressed_file} is identical to the original file.\033[0m")
+            print(Fore.GREEN + f"Success: The decompressed file is identical to the original." + Style.RESET_ALL)
         else:
-            print(f"\033[91mFailure: The decompressed file {decompressed_file} is different from the original file.\033[0m")
+            print(Fore.RED + f"Failure: The decompressed file differs from the original." + Style.RESET_ALL)
 
         return files_are_equal
 
+    except Exception as e:
+        print(Fore.RED + f"An error occurred: {str(e)}" + Style.RESET_ALL)
+        return False
+
     finally:
-        # Cleanup: Remove the compressed and decompressed files after the test
+        # Cleanup: Remove the compressed and decompressed files
         if os.path.exists(compressed_file):
             os.remove(compressed_file)
-            print(f"\033[93mDeleted: {compressed_file}\033[0m")
 
-        if os.path.exists(decompressed_file):
+        if decompressed_file and os.path.exists(decompressed_file):
             os.remove(decompressed_file)
-            print(f"\033[93mDeleted: {decompressed_file}\033[0m")
 
 
 def run_tests():
     """
-    Executes all defined tests automatically, handling file names internally, and cleaning up generated files.
+    Executes all defined tests automatically.
     """
-    print("\n\033[1m=== RUNNING TESTS ===\033[0m")
+    print(Fore.MAGENTA + "\n=== RUNNING TESTS ===" + Style.RESET_ALL)
 
-    # Test 1: Test with a 300-character file
-    print("\n\033[1m--- Test 1: 300-character file ---\033[0m")
-    result_300 = test_compression_decompression(input_file_300, compressed_file_300)
-    if result_300:
-        print("\033[92mTest 1 completed successfully.\033[0m")
-    else:
-        print("\033[91mTest 1 failed.\033[0m")
+    algorithms = ["RLE", "Huffman"]
 
-    # Test 2: Test with a 1000-character file
-    print("\n\033[1m--- Test 2: 1000-character file ---\033[0m")
-    result_1000 = test_compression_decompression(input_file_1000, compressed_file_1000)
-    if result_1000:
-        print("\033[92mTest 2 completed successfully.\033[0m")
-    else:
-        print("\033[91mTest 2 failed.\033[0m")
+    for algorithm in algorithms:
+        # Test 1: Test with a 300-character file
+        print(Fore.YELLOW + f"\n--- Test 1 ({algorithm}): 300-character file ---" + Style.RESET_ALL)
+        result_300 = test_compression_decompression(input_file_300, compressed_file_300, algorithm=algorithm)
+        if result_300:
+            print(Fore.GREEN + f"Test 1 ({algorithm}) completed successfully." + Style.RESET_ALL)
+        else:
+            print(Fore.RED + f"Test 1 ({algorithm}) failed." + Style.RESET_ALL)
 
-    # Test 3: Test with a 10000-character file
-    print("\n\033[1m--- Test 3: 10000-character file ---\033[0m")
-    result_10000 = test_compression_decompression(input_file_10000, compressed_file_10000)
-    if result_10000:
-        print("\033[92mTest 3 completed successfully.\033[0m")
-    else:
-        print("\033[91mTest 3 failed.\033[0m")
+        # Test 2: Test with a 1000-character file
+        print(Fore.YELLOW + f"\n--- Test 2 ({algorithm}): 1000-character file ---" + Style.RESET_ALL)
+        result_1000 = test_compression_decompression(input_file_1000, compressed_file_1000, algorithm=algorithm)
+        if result_1000:
+            print(Fore.GREEN + f"Test 2 ({algorithm}) completed successfully." + Style.RESET_ALL)
+        else:
+            print(Fore.RED + f"Test 2 ({algorithm}) failed." + Style.RESET_ALL)
+
+        # Test 3: Test with a 10000-character file
+        print(Fore.YELLOW + f"\n--- Test 3 ({algorithm}): 10000-character file ---" + Style.RESET_ALL)
+        result_10000 = test_compression_decompression(input_file_10000, compressed_file_10000, algorithm=algorithm)
+        if result_10000:
+            print(Fore.GREEN + f"Test 3 ({algorithm}) completed successfully." + Style.RESET_ALL)
+        else:
+            print(Fore.RED + f"Test 3 ({algorithm}) failed." + Style.RESET_ALL)
 
 
 # Run the tests

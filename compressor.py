@@ -3,6 +3,11 @@ import time
 from tqdm import tqdm
 import heapq
 from collections import Counter
+from colorama import Fore, Style
+
+# Inicializar colorama
+import colorama
+colorama.init()
 
 # Huffman Tree Node
 class HuffmanNode:
@@ -19,7 +24,7 @@ def build_huffman_tree(text):
     freq = Counter(text)
     priority_queue = [HuffmanNode(char, freq) for char, freq in freq.items()]
     heapq.heapify(priority_queue)
-    
+
     while len(priority_queue) > 1:
         left = heapq.heappop(priority_queue)
         right = heapq.heappop(priority_queue)
@@ -62,6 +67,9 @@ def huffman_compress(input_data):
     return compressed_data, root
 
 def huffman_decompress(compressed_data, root):
+    if root is None:
+        raise ValueError("El árbol Huffman es requerido para la descompresión")
+
     encoded_data = ''.join(format(byte, '08b') for byte in compressed_data)
 
     # Get the padding info from the first byte
@@ -83,7 +91,7 @@ def RLE_compression(input_bytes):
     compressed = bytearray()
     length = len(input_bytes)
     count = 1
-    
+
     for i in range(1, length):
         if input_bytes[i] == input_bytes[i - 1]:
             count += 1
@@ -121,51 +129,54 @@ def RLE_decompression(compressed_bytes):
 
     return decompressed
 
-def compress_file(input_file, algorithm="RLE", output_file=None, chunk_size=8*1024*1024):
+def compress_file(input_file, algorithm="RLE", output_file=None, chunk_size=8*1024*1024, show_progress=True):
     start_time = time.time()
     file_size = os.path.getsize(input_file)
-    
+
     file_name = os.path.basename(input_file)
     file_name_no_ext, file_ext = os.path.splitext(file_name)
-    
-    # Guardar el archivo comprimido en la misma carpeta que el archivo original
+
     if output_file is None:
         output_file = os.path.join(os.path.dirname(input_file), file_name_no_ext + ".myPack")
-    
-    print(f"\n\033[1mStarting compression using {algorithm}...\033[0m\n")
 
-    with tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024,
-              bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
-              ascii=' █', desc="Compressing") as pbar:
-        
-        with open(input_file, 'rb') as file_in, open(output_file, 'wb') as file_out:
-            file_out.write(f"{file_name}\n".encode())  # Store the original file name in the header
-            
-            if algorithm == "RLE":
-                while True:
-                    buffer = file_in.read(chunk_size)
-                    if not buffer:
-                        break
+    print(Fore.GREEN + f"\nStarting compression using {algorithm}...\n" + Style.RESET_ALL)
 
-                    compressed_chunk = RLE_compression(buffer)
-                    file_out.write(compressed_chunk)
-                    pbar.update(len(buffer))
-            elif algorithm == "Huffman":
-                input_data = file_in.read()
-                compressed_data, _ = huffman_compress(input_data)
-                file_out.write(compressed_data)
-                pbar.update(len(input_data))
+    progress_bar = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024,
+                        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+                        ascii=' █', desc="Compressing") if show_progress else None
+
+    with open(input_file, 'rb') as file_in, open(output_file, 'wb') as file_out:
+        file_out.write(f"{file_name}\n".encode())  # Store the original file name in the header
+
+        if algorithm == "RLE":
+            while True:
+                buffer = file_in.read(chunk_size)
+                if not buffer:
+                    break
+                compressed_chunk = RLE_compression(buffer)
+                file_out.write(compressed_chunk)
+                if progress_bar:
+                    progress_bar.update(len(buffer))
+
+        elif algorithm == "Huffman":
+            input_data = file_in.read()
+            compressed_data, _ = huffman_compress(input_data.decode('latin-1'))  # Decode using latin-1
+            file_out.write(compressed_data)
+            if progress_bar:
+                progress_bar.update(len(input_data))
+
+    if progress_bar:
+        progress_bar.close()
 
     end_time = time.time()
-    print(f"\n\033[1mCompression completed in {end_time - start_time:.2f} seconds\033[0m")
-    print(f"File saved as: {output_file}")
+    print(Fore.GREEN + f"\nCompression completed in {end_time - start_time:.2f} seconds" + Style.RESET_ALL)
+    print(Fore.YELLOW + f"File saved as: {output_file}" + Style.RESET_ALL)
 
-def decompress_file(compressed_file, algorithm="RLE", output_file=None, is_test=False):
+def decompress_file(compressed_file, algorithm="RLE", output_file=None, is_test=False, show_progress=True):
     start_time = time.time()
 
     with open(compressed_file, 'rb') as file_in:
-        # Read the header to get the original filename
-        original_file_name = file_in.readline().decode().strip()  # The full original name with extension
+        original_file_name = file_in.readline().decode().strip()  # The original filename
         
         if is_test:
             original_name, original_ext = os.path.splitext(original_file_name)
@@ -176,27 +187,33 @@ def decompress_file(compressed_file, algorithm="RLE", output_file=None, is_test=
 
         file_size = os.path.getsize(compressed_file) - len(original_file_name) - 1
 
-        print(f"\n\033[1mStarting decompression using {algorithm}...\033[0m\n")
-        
-        with tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024,
-                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
-                  ascii=' █', desc="Decompressing") as pbar:
-            
-            with open(output_file, 'wb') as file_out:
-                if algorithm == "RLE":
-                    while True:
-                        buffer = file_in.read(1024)
-                        if not buffer:
-                            break
-                        decompressed_chunk = RLE_decompression(buffer)
-                        file_out.write(decompressed_chunk)
-                        pbar.update(len(buffer))
-                elif algorithm == "Huffman":
-                    compressed_data = file_in.read()
-                    decompressed_data = huffman_decompress(compressed_data, root=None)
-                    file_out.write(decompressed_data.encode())  # Ensure binary compatibility
+        print(Fore.GREEN + f"\nStarting decompression using {algorithm}...\n" + Style.RESET_ALL)
+
+        progress_bar = tqdm(total=file_size, unit='B', unit_scale=True, unit_divisor=1024,
+                            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+                            ascii=' █', desc="Decompressing") if show_progress else None
+
+        with open(output_file, 'wb') as file_out:
+            if algorithm == "RLE":
+                while True:
+                    buffer = file_in.read(1024)
+                    if not buffer:
+                        break
+                    decompressed_chunk = RLE_decompression(buffer)
+                    file_out.write(decompressed_chunk)
+                    if progress_bar:
+                        progress_bar.update(len(buffer))
+
+            elif algorithm == "Huffman":
+                compressed_data = file_in.read()
+                root, _ = build_huffman_tree(compressed_data.decode('latin-1'))  # Decode using latin-1
+                decompressed_data = huffman_decompress(compressed_data, root)
+                file_out.write(decompressed_data.encode('latin-1'))  # Ensure binary compatibility
+
+        if progress_bar:
+            progress_bar.close()
 
     end_time = time.time()
-    print(f"\n\033[1mDecompression completed in {end_time - start_time:.2f} seconds\033[0m")
-    print(f"File decompressed as: {output_file}")
+    print(Fore.GREEN + f"\nDecompression completed in {end_time - start_time:.2f} seconds" + Style.RESET_ALL)
+    print(Fore.YELLOW + f"File decompressed as: {output_file}" + Style.RESET_ALL)
     return output_file
